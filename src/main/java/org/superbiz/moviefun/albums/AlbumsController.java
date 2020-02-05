@@ -1,5 +1,6 @@
 package org.superbiz.moviefun.albums;
 
+import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.util.IOUtils;
 import org.apache.tika.Tika;
 import org.springframework.http.HttpEntity;
@@ -12,6 +13,7 @@ import org.superbiz.moviefun.blobstore.Blob;
 import org.superbiz.moviefun.blobstore.BlobStore;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -60,18 +62,12 @@ public class AlbumsController {
 //        byte[] imageBytes = readAllBytes(coverFilePath);
 //        HttpHeaders headers = createImageHttpHeaders(coverFilePath, imageBytes);
 
-        byte[] imageBytes;
-        HttpHeaders headers;
-
-        Optional<Blob> blob = blobStore.get(getCoverNameByAlbumId(albumId));
-        if (blob.isPresent()) {
-            imageBytes = IOUtils.toByteArray(blob.get().inputStream);
-            headers = createImageHttpHeaders(blob.get(), imageBytes);
-        } else {
-            Path defaultCoverPath = Paths.get(getSystemResource("default-cover.jpg").toURI());
-            imageBytes = readAllBytes(defaultCoverPath);
-            headers = createImageHttpHeaders(defaultCoverPath, imageBytes);
-        }
+        Blob blob = blobStore.get(getCoverNameByAlbumId(albumId)).orElseGet(() -> {
+            InputStream stream = ClassLoader.getSystemResourceAsStream("default-cover.jpg");
+            return new Blob("default-cover", stream, MediaType.IMAGE_JPEG_VALUE);
+        });
+        byte[] imageBytes = IOUtils.toByteArray(blob.inputStream);
+        HttpHeaders headers = createImageHttpHeaders(blob, imageBytes);
 
         return new HttpEntity<>(imageBytes, headers);
     }
@@ -90,14 +86,14 @@ public class AlbumsController {
 //        }
 //    }
 
-    private HttpHeaders createImageHttpHeaders(Path coverFilePath, byte[] imageBytes) throws IOException {
-        String contentType = new Tika().detect(coverFilePath);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType(contentType));
-        headers.setContentLength(imageBytes.length);
-        return headers;
-    }
+//    private HttpHeaders createImageHttpHeaders(Path coverFilePath, byte[] imageBytes) throws IOException {
+//        String contentType = new Tika().detect(coverFilePath);
+//
+//        HttpHeaders headers = new HttpHeaders();
+//        headers.setContentType(MediaType.parseMediaType(contentType));
+//        headers.setContentLength(imageBytes.length);
+//        return headers;
+//    }
 
     private HttpHeaders createImageHttpHeaders(Blob blob, byte[] imageBytes) {
         HttpHeaders headers = new HttpHeaders();
